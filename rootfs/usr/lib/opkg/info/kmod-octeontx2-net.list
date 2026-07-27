@@ -1,0 +1,6 @@
+/lib/modules/6.6.144/rvu_af.ko
+/lib/modules/6.6.144/otx2_ptp.ko
+/lib/modules/6.6.144/rvu_mbox.ko
+/lib/modules/6.6.144/rvu_nicvf.ko
+/etc/modules.d/40-octeontx2-net
+/lib/modules/6.6.144/rvu_nicpf.ko

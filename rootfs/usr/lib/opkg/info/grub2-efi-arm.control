@@ -1,0 +1,13 @@
+Package: grub2-efi-arm
+Version: 2.12-r1
+Depends: libc
+Source: feeds/base/boot/grub2
+SourceName: grub
+License: GPL-3.0-or-later
+Section: boot
+SourceDateEpoch: 1714803264
+URL: http://www.gnu.org/software/grub/
+CPE-ID: cpe:/a:gnu:grub2
+Architecture: aarch64_generic
+Installed-Size: 10240
+Description:  GRand Unified Bootloader (efi)

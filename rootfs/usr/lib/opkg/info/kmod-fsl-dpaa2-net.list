@@ -1,0 +1,2 @@
+/lib/modules/6.6.144/fsl-dpaa2-eth.ko
+/etc/modules.d/35-fsl-dpaa2-net

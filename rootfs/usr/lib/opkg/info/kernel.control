@@ -1,0 +1,14 @@
+Package: kernel
+Version: 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1
+Depends: libc
+Source: feeds/base/kernel/linux
+SourceName: kernel
+License: GPL-2.0-only
+LicenseFiles: COPYING
+Section: sys
+SourceDateEpoch: 1779897308
+URL: http://www.kernel.org/
+CPE-ID: cpe:/o:linux:linux_kernel
+Architecture: aarch64_generic
+Installed-Size: 40960
+Description:  Virtual kernel package

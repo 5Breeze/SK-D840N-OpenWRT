@@ -1,0 +1,12 @@
+Package: rpcd-mod-iwinfo
+Version: 2025.09.01~bba95191-r2
+Depends: libiwinfo (>=2023.01.21), libc, libubus20250102, libubox20240329, rpcd, libiwinfo20230701
+Source: feeds/base/system/rpcd
+SourceName: rpcd
+License: ISC
+Section: utils
+SourceDateEpoch: 1784663528
+Maintainer: Jo-Philipp Wich <jo@mein.io>
+Architecture: aarch64_generic
+Installed-Size: 71680
+Description:  Provides ubus calls for accessing iwinfo data.

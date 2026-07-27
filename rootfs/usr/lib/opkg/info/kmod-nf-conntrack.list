@@ -1,0 +1,5 @@
+/lib/modules/6.6.144/nf_defrag_ipv6.ko
+/lib/modules/6.6.144/nf_conntrack.ko
+/etc/modules.d/nf-conntrack
+/etc/sysctl.d/11-nf-conntrack.conf
+/lib/modules/6.6.144/nf_defrag_ipv4.ko

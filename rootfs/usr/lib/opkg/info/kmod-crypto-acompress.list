@@ -1,0 +1,2 @@
+/lib/modules/6.6.144/crypto_acompress.ko
+/etc/modules.d/09-crypto-acompress

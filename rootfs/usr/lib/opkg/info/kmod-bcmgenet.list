@@ -1,0 +1,2 @@
+/etc/modules.d/30-bcmgenet
+/lib/modules/6.6.144/genet.ko

@@ -1,0 +1,13 @@
+Package: kmod-octeontx2-net
+Version: 6.6.144-r1
+Depends: kernel (=6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-phylink, kmod-of-mdio, kmod-macsec, kmod-ptp
+Source: feeds/base/kernel/linux
+SourceName: kernel
+License: GPL-2.0-only
+LicenseFiles: COPYING
+Section: kernel
+SourceDateEpoch: 1779897308
+CPE-ID: cpe:/o:linux:linux_kernel
+Architecture: aarch64_generic
+Installed-Size: 870400
+Description:  Marvell (Cavium) ThunderX2 network drivers

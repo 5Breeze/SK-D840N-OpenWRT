@@ -1,0 +1,14 @@
+Package: kmod-gpio-pca953x
+Version: 6.6.144-r1
+Depends: kernel (=6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-i2c-core, kmod-regmap-i2c
+Source: feeds/base/kernel/linux
+SourceName: kernel
+License: GPL-2.0-only
+LicenseFiles: COPYING
+Section: kernel
+SourceDateEpoch: 1779897308
+CPE-ID: cpe:/o:linux:linux_kernel
+Architecture: aarch64_generic
+Installed-Size: 40960
+Description:  Kernel module for MAX731{0,2,3,5}, PCA6107, PCA953{4-9}, PCA955{4-7},
+ PCA957{4,5} and TCA64{08,16} I2C GPIO expanders

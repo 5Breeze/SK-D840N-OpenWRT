@@ -1,0 +1,2 @@
+/etc/modules.d/09-crypto-sha3
+/lib/modules/6.6.144/sha3_generic.ko

@@ -1,0 +1,2 @@
+/lib/modules/6.6.144/fec.ko
+/etc/modules.d/35-fsl-fec

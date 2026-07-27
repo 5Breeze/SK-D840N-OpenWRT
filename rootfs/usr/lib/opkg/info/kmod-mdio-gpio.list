@@ -1,0 +1,3 @@
+/lib/modules/6.6.144/mdio-bitbang.ko
+/lib/modules/6.6.144/mdio-gpio.ko
+/etc/modules.d/mdio-gpio

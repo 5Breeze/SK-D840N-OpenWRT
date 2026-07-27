@@ -1,0 +1,2 @@
+/etc/modules.d/40-mvpp2
+/lib/modules/6.6.144/mvpp2.ko

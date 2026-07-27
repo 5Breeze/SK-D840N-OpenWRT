@@ -1,0 +1,2 @@
+/lib/modules/6.6.144/mdio-bcm-unimac.ko
+/etc/modules.d/30-mdio-bcm-unimac

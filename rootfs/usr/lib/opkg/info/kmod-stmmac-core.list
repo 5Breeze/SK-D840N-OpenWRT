@@ -1,0 +1,4 @@
+/lib/modules/6.6.144/dwmac-generic.ko
+/lib/modules/6.6.144/stmmac-platform.ko
+/lib/modules/6.6.144/stmmac.ko
+/etc/modules.d/40-stmmac-core

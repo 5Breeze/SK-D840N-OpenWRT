@@ -1,0 +1,4 @@
+/lib/modules/6.6.144/nft_chain_nat.ko
+/lib/modules/6.6.144/nft_masq.ko
+/etc/modules.d/nft-nat
+/lib/modules/6.6.144/nft_nat.ko

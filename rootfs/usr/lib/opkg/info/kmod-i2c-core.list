@@ -1,0 +1,2 @@
+/lib/modules/6.6.144/i2c-dev.ko
+/etc/modules.d/51-i2c-core

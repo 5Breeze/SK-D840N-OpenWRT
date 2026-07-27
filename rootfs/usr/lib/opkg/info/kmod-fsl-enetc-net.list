@@ -1,0 +1,6 @@
+/lib/modules/6.6.144/fsl-enetc-mdio.ko
+/lib/modules/6.6.144/fsl-enetc-core.ko
+/lib/modules/6.6.144/fsl-enetc.ko
+/lib/modules/6.6.144/fsl-enetc-ierb.ko
+/lib/modules/6.6.144/fsl-enetc-vf.ko
+/etc/modules.d/35-fsl-enetc-net
