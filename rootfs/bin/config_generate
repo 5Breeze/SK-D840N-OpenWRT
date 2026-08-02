@@ -186,7 +186,7 @@ generate_network() {
 					delete network.${1}6
 					set network.${1}6='interface'
 					set network.${1}6.device='$device'
-					set network.${1}6.proto='dhcpv6'
+					# set network.${1}6.proto='dhcpv6'
 				EOF
 			}
 		;;
