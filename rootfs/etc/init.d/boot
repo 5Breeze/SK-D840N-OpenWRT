@@ -43,6 +43,21 @@ boot() {
 	touch /tmp/.config_pending
 	/sbin/kmodloader
 
+	# eth
+	/bin/echo 0 > /proc/sys/net/core/message_cost
+	/sbin/ifconfig sw up
+	/sbin/ifconfig idm1 up
+	/sbin/ifconfig idm0 up
+	/sbin/eth_setup
+	/bin/echo 3 > /sys/devices/virtual/net/eth0/queues/rx-0/rps_cpus
+	/bin/echo 3 > /sys/devices/virtual/net/eth1/queues/rx-0/rps_cpus
+	/bin/echo 3 > /sys/devices/virtual/net/eth2/queues/rx-0/rps_cpus
+	/bin/echo 3 > /sys/devices/virtual/net/eth3/queues/rx-0/rps_cpus
+	/bin/echo 1024 > /sys/devices/virtual/net/eth0/queues/rx-0/rps_flow_cnt
+	/bin/echo 1024 > /sys/devices/virtual/net/eth1/queues/rx-0/rps_flow_cnt
+	/bin/echo 1024 > /sys/devices/virtual/net/eth2/queues/rx-0/rps_flow_cnt
+	/bin/echo 1024 > /sys/devices/virtual/net/eth3/queues/rx-0/rps_flow_cnt
+
 	[ ! -f /etc/config/wireless ] && {
 		# compat for bcm47xx and mvebu
 		sleep 1

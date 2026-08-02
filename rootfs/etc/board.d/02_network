@@ -7,9 +7,9 @@
 board_config_update
 
 case "$(board_name)" in
-	traverse,ten64)
-		ucidef_set_interface_lan "eth0 eth1 eth2 eth3"
-		ucidef_set_interface_wan "eth6"
+	zte,133)
+		ucidef_set_interface_lan "eth1 eth2 eth3"
+		ucidef_set_interface_wan "eth0"
 		;;
 esac
 
