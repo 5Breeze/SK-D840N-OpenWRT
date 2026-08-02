@@ -289,13 +289,6 @@ Status: install ok installed
 Architecture: aarch64_generic
 Installed-Time: 1784877710
 
-Package: procd-ujail
-Version: 2026.03.14~c59f2d80-r1
-Depends: libc, libubox20240329, libubus20250102, libuci20250120, libblobmsg-json20240329
-Status: install ok installed
-Architecture: aarch64_generic
-Installed-Time: 1784877710
-
 Package: kmod-lib-crc16
 Version: 6.6.144-r1
 Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1)
@@ -1082,16 +1075,16 @@ Architecture: aarch64_generic
 Installed-Time: 1784877710
 Auto-Installed: yes
 
-Package: kmod-nft-offload
+Package: kmod-ppp
 Version: 6.6.144-r1
-Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-nf-flow, kmod-nft-nat
+Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-lib-crc-ccitt, kmod-slhc
 Status: install ok installed
 Architecture: aarch64_generic
 Installed-Time: 1784877710
 
-Package: kmod-ppp
+Package: kmod-nft-offload
 Version: 6.6.144-r1
-Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-lib-crc-ccitt, kmod-slhc
+Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-nf-flow, kmod-nft-nat
 Status: install ok installed
 Architecture: aarch64_generic
 Installed-Time: 1784877710
@@ -1266,13 +1259,6 @@ Status: install ok installed
 Architecture: all
 Installed-Time: 1784877710
 
-Package: kmod-nf-conntrack6
-Version: 6.6.144-r1
-Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-nf-conntrack
-Status: install ok installed
-Architecture: aarch64_generic
-Installed-Time: 1784877710
-
 Package: luci-light
 Version: 26.205.85413~cac97ed
 Depends: libc, luci-proto-ipv6, luci-app-firewall, luci-mod-admin-full, luci-proto-ppp, luci-theme-bootstrap, rpcd-mod-rrdns, uhttpd, uhttpd-mod-ubus
@@ -1280,6 +1266,13 @@ Status: install ok installed
 Architecture: all
 Installed-Time: 1784877710
 Auto-Installed: yes
+
+Package: kmod-nf-conntrack6
+Version: 6.6.144-r1
+Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-nf-conntrack
+Status: install ok installed
+Architecture: aarch64_generic
+Installed-Time: 1784877710
 
 Package: libgcc1
 ABIVersion: 1
@@ -1331,13 +1324,6 @@ Status: install ok installed
 Architecture: aarch64_generic
 Installed-Time: 1784877710
 
-Package: kmod-e1000e
-Version: 6.6.144-r1
-Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-ptp
-Status: install ok installed
-Architecture: aarch64_generic
-Installed-Time: 1784877710
-
 Package: kmod-crypto-crc32
 Version: 6.6.144-r1
 Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-crypto-hash
@@ -1345,6 +1331,13 @@ Status: install ok installed
 Architecture: aarch64_generic
 Installed-Time: 1784877710
 Auto-Installed: yes
+
+Package: kmod-e1000e
+Version: 6.6.144-r1
+Depends: kernel (= 6.6.144~0b532dfcba2e5fa16405c5387dd37cae-r1), kmod-ptp
+Status: install ok installed
+Architecture: aarch64_generic
+Installed-Time: 1784877710
 
 Package: blkid
 Version: 2.40.2-r1
