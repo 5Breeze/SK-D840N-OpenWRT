@@ -1,0 +1,5 @@
+1554c1554,1555
+< 	nla_put_u8(msg, IFLA_BR_VLAN_FILTERING, !!cfg->vlan_filtering);
+---
+> 	if (cfg->vlan_filtering)
+> 		nla_put_u8(msg, IFLA_BR_VLAN_FILTERING, !!cfg->vlan_filtering);
