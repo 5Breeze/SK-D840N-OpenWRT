@@ -38,6 +38,8 @@ boot() {
 	grep -q debugfs /proc/filesystems && /bin/mount -o nosuid,nodev,noexec,noatime -t debugfs debugfs /sys/kernel/debug
 	grep -q bpf /proc/filesystems && /bin/mount -o nosuid,nodev,noexec,noatime,mode=0700 -t bpf bpffs /sys/fs/bpf
 	grep -q pstore /proc/filesystems && /bin/mount -o nosuid,nodev,noexec,noatime -t pstore pstore /sys/fs/pstore
+	mkdir -p /tagparam
+	grep -q jffs2 /proc/filesystems && /bin/mount -t jffs2 /dev/mtdblock2 /tagparam
 	[ "$FAILSAFE" = "true" ] && touch /tmp/.failsafe
 
 	touch /tmp/.config_pending
@@ -45,10 +47,18 @@ boot() {
 
 	# eth
 	/bin/echo 0 > /proc/sys/net/core/message_cost
+	/sbin/if_addr
+	/sbin/ifconfig sw hw ether $(cat /tagparam/0_mac_addr)
 	/sbin/ifconfig sw up
+	/sbin/ifconfig idm1 hw ether $(cat /tagparam/1_mac_addr)
 	/sbin/ifconfig idm1 up
+	/sbin/ifconfig idm0 hw ether $(cat /tagparam/2_mac_addr)
 	/sbin/ifconfig idm0 up
 	/sbin/eth_setup
+	/sbin/ifconfig eth0 hw ether $(cat /tagparam/3_mac_addr)
+	/sbin/ifconfig eth1 hw ether $(cat /tagparam/4_mac_addr)
+	/sbin/ifconfig eth2 hw ether $(cat /tagparam/5_mac_addr)
+	/sbin/ifconfig eth3 hw ether $(cat /tagparam/6_mac_addr)
 	/bin/echo 3 > /sys/devices/virtual/net/eth0/queues/rx-0/rps_cpus
 	/bin/echo 3 > /sys/devices/virtual/net/eth1/queues/rx-0/rps_cpus
 	/bin/echo 3 > /sys/devices/virtual/net/eth2/queues/rx-0/rps_cpus
