@@ -46,6 +46,22 @@
 
 ## Quick Start
 
+### Firmware download
+
+[Firmware Release](https://github.com/huxiangjs/SK-D840N-OpenWRT/releases)
+
+### Preparing the Environment
+
+1. Connect the SK-D840N to your computer using an Ethernet cable.
+2. Configure the computer's static IP address as: `192.168.1.40`
+3. Start the TFTP service to transfer the firmware (Python 3.10.12):
+   ```
+   pip install -r requirements.txt
+   python tftp.py
+   ```
+4. Connect the serial port to the computer at a baud rate of 115200.
+
+
 ### Firmware flashing
 
 1. Flash the Bootloader
