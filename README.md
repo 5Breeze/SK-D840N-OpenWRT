@@ -57,7 +57,7 @@
 2. Configure the computer's static IP address as: `192.168.1.40`
 3. Start the TFTP service to transfer the firmware (Python 3.10.12):
    ```
-   pip install -r requirements.txt
+   python -m pip install -r requirements.txt
    python tftp.py
    ```
 4. Connect the serial port to the computer at a baud rate of 115200.
