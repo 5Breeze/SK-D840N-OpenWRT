@@ -60,35 +60,37 @@
    python tftp.py
    ```
 4. Connect the serial port to the computer at a baud rate of 115200.
+
 ![Link](images/Serial_Port.png)
 
 ### Firmware flashing
 
-1. Flash the Bootloader
+1. After powering on the SK-D840N, enter "u" in the serial port, and it will remain in U-Boot.
+2. Flash the Bootloader
    ```
    tftpboot 0x88000000 192.168.1.40:boot.bin
    nand erase 0x00000000 0x00200000
    nand write 0x88000000 0x00000000 ${filesize}
    ```
-2. Flash the Kernel
+3. Flash the Kernel
    ```
    tftpboot 0x88000000 192.168.1.40:uImage
    nand erase 0x00200000 0x00800000
    nand write 0x88000000 0x00200000 ${filesize}
    ```
-3. Flash the dtb
+4. Flash the dtb
    ```
    tftpboot 0x88000000 192.168.1.40:board.dtb
    nand erase 0x00a00000 0x00100000
    nand write 0x88000000 0x00a00000 ${filesize}
    ```
-4. Move the param partition
+5. Move the param partition
    ```
    nand read 0x88000000 0x04800000 0x00400000
    nand erase 0x00b00000 0x00400000
    nand write 0x88000000 0x00b00000 0x00400000
    ```
-5. Flash the rootfs
+6. Flash the rootfs
    ```
    tftpboot 0x88000000 192.168.1.40:rootfs.jffs2
    nand erase 0x00f00000 0x0f100000
@@ -112,4 +114,12 @@ cd SK-D840N-OpenWRT
 ./scripts/gitkeep.sh install
 ```
 
+### Packaging ramdisk.cpio.lzma
+```shell
+./scripts/pack_to_ramdisk.sh
+```
 
+### Packaging ramdisk.cpio.lzma
+```shell
+./scripts/pack_to_jffs2.sh
+```
