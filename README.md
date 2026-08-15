@@ -103,6 +103,18 @@
    nand erase 0x00f00000 0x0f100000
    nand write 0x88000000 0x00f00000 ${filesize}
    ```
+7. Reboot
+   ```
+   reset
+   ```
+8. At this point, you can log in to OpenWRT using a web browser or SSH.
+
+|     port    | **name** |    **web browser**  |       **SSH**        | 
+| :---------: | :------: | :-----------------: | :------------------: |
+| **1-2.5G**  |   eth0   |          @DHCP      |       @DHCP          |
+| **2-1000M** |   eth1   |  http://192.168.1.1 | ssh root@192.168.1.1 |
+| **3-1000M** |   eth2   |  http://192.168.1.1 | ssh root@192.168.1.1 |
+| **4-1000M** |   eth3   |  http://192.168.1.1 | ssh root@192.168.1.1 |
 
 ## Manual Packaging
 
