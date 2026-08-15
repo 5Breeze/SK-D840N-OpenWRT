@@ -60,7 +60,7 @@
    python tftp.py
    ```
 4. Connect the serial port to the computer at a baud rate of 115200.
-
+![Link](images/Serial_Port.png)
 
 ### Firmware flashing
 
