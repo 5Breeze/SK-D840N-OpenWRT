@@ -67,7 +67,7 @@
 ### Firmware flashing
 
 1. After powering on the SK-D840N, enter "u" in the serial port, and it will remain in U-Boot.
-2. Flash the Bootloader
+2. Flash the Bootloader (⚠️ **Do not disconnect the power during the flashing process!** )
    ```
    tftpboot 0x88000000 192.168.1.40:boot.bin
    nand erase 0x00000000 0x00200000
@@ -91,7 +91,7 @@
    nand erase 0x00b00000 0x00400000
    nand write 0x88000000 0x00b00000 0x00400000
    ```
-6. Flash the rootfs
+6. Flash the rootfs (💡 If you need to reset it in the future, simply reflash this partition. )
    ```
    tftpboot 0x88000000 192.168.1.40:rootfs.jffs2
    nand erase 0x00f00000 0x0f100000
