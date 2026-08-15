@@ -1,0 +1,34 @@
+name: Automatic Packaging
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mtd-utils
+
+    - name: Packaging
+      run: ./scripts/pack_to_jffs2.sh
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        path: rootfs.jffs2
+        archive: false
+        if-no-files-found: ignore
