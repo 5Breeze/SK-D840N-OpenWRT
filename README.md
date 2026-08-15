@@ -46,6 +46,39 @@
 
 ## Quick Start
 
+### Firmware flashing
+
+1. Flash the Bootloader
+   ```
+   tftpboot 0x88000000 192.168.1.40:boot.bin
+   nand erase 0x00000000 0x00200000
+   nand write 0x88000000 0x00000000 ${filesize}
+   ```
+2. Flash the Kernel
+   ```
+   tftpboot 0x88000000 192.168.1.40:uImage
+   nand erase 0x00200000 0x00800000
+   nand write 0x88000000 0x00200000 ${filesize}
+   ```
+3. Flash the dtb
+   ```
+   tftpboot 0x88000000 192.168.1.40:board.dtb
+   nand erase 0x00a00000 0x00100000
+   nand write 0x88000000 0x00a00000 ${filesize}
+   ```
+4. Move the param partition
+   ```
+   nand read 0x88000000 0x04800000 0x00400000
+   nand erase 0x00b00000 0x00400000
+   nand write 0x88000000 0x00b00000 0x00400000
+   ```
+5. Flash the rootfs
+   ```
+   tftpboot 0x88000000 192.168.1.40:rootfs.jffs2
+   nand erase 0x00f00000 0x0f100000
+   nand write 0x88000000 0x00f00000 ${filesize}
+   ```
+
 ## Manual Packaging
 
 ### System Environment
