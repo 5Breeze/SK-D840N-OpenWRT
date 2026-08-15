@@ -16,6 +16,7 @@
 
 |         |  TYPE1  | TYPE2 |
 | :-----: | :-----: | :-----: |
+| SoC | ![SoC](images/SoC.png) |    |
 | DDR | ![DDR_TYPE1](images/DDR_TYPE1.JPG) | ![DDR_TYPE1](images/DDR_TYPE2.JPG) |
 | ETH PHY | ![PHY_2.5G](images/PHY_2.5G.JPG) |    |
 | FLASH | ![NAND_FLASH](images/NAND_FLASH.JPG) |    |
