@@ -2,6 +2,12 @@
 
 **SK-D840N OpenWRT rootfs**
 
+**Feature:**
+
+* AArch64 @ Cortex A53x2 1000MHZ
+* DDR3 512MiB
+* Nand Flash 256MBytes
+
 ![PCB](images/PCB.JPG)
 
 ## Information
