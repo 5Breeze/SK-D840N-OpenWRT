@@ -116,6 +116,8 @@
 | **3-1000M** |   eth2   |  http://192.168.1.1 | ssh root@192.168.1.1 |
 | **4-1000M** |   eth3   |  http://192.168.1.1 | ssh root@192.168.1.1 |
 
+Demo video: [Bilibili video](https://www.bilibili.com/video/BV1EMbR6tEZ7)
+
 ## Manual Packaging
 
 ### System Environment
