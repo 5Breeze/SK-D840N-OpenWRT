@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Select Argon after the first normal boot.  Keeping this in uci-defaults
+# avoids overwriting the user's later theme choice on every boot.
+uci -q set luci.main.mediaurlbase='/luci-static/argon'
+uci -q set luci.main.lang='zh_cn'
+uci -q commit luci
+
+exit 0
