@@ -16,77 +16,151 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      # ==============================
+      # Checkout
+      # ==============================
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential clang flex bison gawk gettext git libncurses-dev \
-          libelf-dev libssl-dev python3-setuptools qemu-user-static rsync \
-          unzip zstd file mtd-utils
+      # ==============================
+      # Fix script permissions
+      # ==============================
+      - name: Prepare build scripts
+        run: |
+          chmod +x ./scripts/*.sh
+          echo "Build scripts:"
+          ls -l ./scripts/*.sh
 
-    - name: Prepare build rootfs
-      env:
-        OPENWRT_VERSION: 24.10.8
-      run: |
-        rm -rf "$RUNNER_TEMP/sk-d840n-rootfs"
-        cp -a rootfs "$RUNNER_TEMP/sk-d840n-rootfs"
+      # ==============================
+      # Install dependencies
+      # ==============================
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            clang \
+            flex \
+            bison \
+            gawk \
+            gettext \
+            git \
+            libncurses-dev \
+            libelf-dev \
+            libssl-dev \
+            python3-setuptools \
+            qemu-user-static \
+            rsync \
+            unzip \
+            zstd \
+            file \
+            mtd-utils
 
-    - name: Build ddns-go packages with OpenWrt SDK
-      env:
-        OPENWRT_VERSION: 24.10.8
-      run: ./scripts/build_external_packages.sh
+      # ==============================
+      # Prepare build rootfs
+      # ==============================
+      - name: Prepare build rootfs
+        env:
+          OPENWRT_VERSION: 24.10.8
+        run: |
+          rm -rf "$RUNNER_TEMP/sk-d840n-rootfs"
+          cp -a rootfs "$RUNNER_TEMP/sk-d840n-rootfs"
 
-    - name: Install OpenWrt packages into rootfs
-      env:
-        OPENWRT_VERSION: 24.10.8
-        OPENWRT_MIRROR: https://downloads.openwrt.org
-        ROOTFS_DIR: ${{ runner.temp }}/sk-d840n-rootfs
-      run: sudo -E ./scripts/install_packages.sh
+          echo "Rootfs prepared:"
+          du -sh "$RUNNER_TEMP/sk-d840n-rootfs"
 
-    - name: Verify installed package set
-      env:
-        ROOTFS_DIR: ${{ runner.temp }}/sk-d840n-rootfs
-      run: ./scripts/verify_packages.sh
+      # ==============================
+      # Build external packages
+      # ==============================
+      - name: Build ddns-go packages with OpenWrt SDK
+        env:
+          OPENWRT_VERSION: 24.10.8
+        run: |
+          ./scripts/build_external_packages.sh
 
-    - name: Packaging
-      run: |
-        ROOTFS_DIR="$RUNNER_TEMP/sk-d840n-rootfs" ./scripts/pack_to_jffs2.sh
-        zip -j firmware.zip binary/* tools/* rootfs.jffs2
+      # ==============================
+      # Install OpenWrt packages
+      # ==============================
+      - name: Install OpenWrt packages into rootfs
+        env:
+          OPENWRT_VERSION: 24.10.8
+          OPENWRT_MIRROR: https://downloads.openwrt.org
+          ROOTFS_DIR: ${{ runner.temp }}/sk-d840n-rootfs
+        run: |
+          sudo -E ./scripts/install_packages.sh
 
-    - name: Check if the event is a tag push
-      id: check_tag_push
-      run: |
-        if [[ $GITHUB_REF == refs/tags/* ]]; then
-          echo "Is tag push"
-          echo "IS_TAG_PUSH=true" >> $GITHUB_OUTPUT
-        else
-          echo "IS_TAG_PUSH=false" >> $GITHUB_OUTPUT
-        fi
+      # ==============================
+      # Verify packages
+      # ==============================
+      - name: Verify installed package set
+        env:
+          ROOTFS_DIR: ${{ runner.temp }}/sk-d840n-rootfs
+        run: |
+          ./scripts/verify_packages.sh
 
-    - name: Create Release
-      if: steps.check_tag_push.outputs.IS_TAG_PUSH == 'true'
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref_name }}
-        release_name: Release ${{ github.ref_name }}
-        draft: false
-        prerelease: false
+      # ==============================
+      # Package firmware
+      # ==============================
+      - name: Packaging
+        env:
+          ROOTFS_DIR: ${{ runner.temp }}/sk-d840n-rootfs
+        run: |
+          ./scripts/pack_to_jffs2.sh
 
-    - name: Upload Release Asset
-      if: steps.check_tag_push.outputs.IS_TAG_PUSH == 'true'
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: firmware.zip
-        asset_name: firmware_${{ github.ref_name }}.zip
-        asset_content_type: application/zip
+          echo "Generated files:"
+          ls -lah binary/ || true
+          ls -lah tools/ || true
+          ls -lah rootfs.jffs2 || true
+
+          zip -j firmware.zip \
+            binary/* \
+            tools/* \
+            rootfs.jffs2
+
+          echo "Firmware package:"
+          ls -lh firmware.zip
+
+      # ==============================
+      # Check tag push
+      # ==============================
+      - name: Check if the event is a tag push
+        id: check_tag_push
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Is tag push"
+            echo "IS_TAG_PUSH=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Is not tag push"
+            echo "IS_TAG_PUSH=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ==============================
+      # Create GitHub Release
+      # ==============================
+      - name: Create Release
+        if: steps.check_tag_push.outputs.IS_TAG_PUSH == 'true'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      # ==============================
+      # Upload firmware
+      # ==============================
+      - name: Upload Release Asset
+        if: steps.check_tag_push.outputs.IS_TAG_PUSH == 'true'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: firmware.zip
+          asset_name: firmware_${{ github.ref_name }}.zip
+          asset_content_type: application/zip
