@@ -21,7 +21,7 @@ ddns_go_repo="${DDNS_GO_REPO:-https://github.com/sirpdboy/luci-app-ddns-go.git}"
 
 # Do NOT force main here.
 # Empty value means use the repository default branch.
-ddns_go_ref="${DDNS_GO_REF:-}"
+ddns_go_ref="${DDNS_GO_REF:-v6.16.0}"
 
 argon_repo="${ARGON_REPO:-https://github.com/jerrykuku/luci-theme-argon.git}"
 
