@@ -1,0 +1,14 @@
+# Packages are resolved from the OpenWrt 24.10.8 feeds for aarch64_generic.
+# Keep this list small enough for the SK-D840N rootfs partition.
+luci-theme-argon
+luci-i18n-base-zh-cn
+luci-i18n-firewall-zh-cn
+luci-i18n-package-manager-zh-cn
+luci-i18n-upnp-zh-cn
+luci-app-upnp
+miniupnpd-nftables
+v2ray-core
+v2ray-geoip
+v2ray-geosite
+tailscale
+kmod-tun

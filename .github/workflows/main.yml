@@ -23,12 +23,39 @@ jobs:
 
     - name: Install dependencies
       run: |
-        # sudo apt-get update
-        sudo apt-get install -y mtd-utils
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential clang flex bison gawk gettext git libncurses-dev \
+          libelf-dev libssl-dev python3-setuptools qemu-user-static rsync \
+          unzip zstd file mtd-utils
+
+    - name: Prepare build rootfs
+      env:
+        OPENWRT_VERSION: 24.10.8
+      run: |
+        rm -rf "$RUNNER_TEMP/sk-d840n-rootfs"
+        cp -a rootfs "$RUNNER_TEMP/sk-d840n-rootfs"
+
+    - name: Build ddns-go packages with OpenWrt SDK
+      env:
+        OPENWRT_VERSION: 24.10.8
+      run: ./scripts/build_external_packages.sh
+
+    - name: Install OpenWrt packages into rootfs
+      env:
+        OPENWRT_VERSION: 24.10.8
+        OPENWRT_MIRROR: https://downloads.openwrt.org
+        ROOTFS_DIR: ${{ runner.temp }}/sk-d840n-rootfs
+      run: sudo -E ./scripts/install_packages.sh
+
+    - name: Verify installed package set
+      env:
+        ROOTFS_DIR: ${{ runner.temp }}/sk-d840n-rootfs
+      run: ./scripts/verify_packages.sh
 
     - name: Packaging
       run: |
-        ./scripts/pack_to_jffs2.sh
+        ROOTFS_DIR="$RUNNER_TEMP/sk-d840n-rootfs" ./scripts/pack_to_jffs2.sh
         zip -j firmware.zip binary/* tools/* rootfs.jffs2
 
     - name: Check if the event is a tag push
