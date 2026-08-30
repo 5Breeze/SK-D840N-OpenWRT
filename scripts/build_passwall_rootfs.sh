@@ -4,6 +4,9 @@ set -euo pipefail
 # Build PassWall for the exact OpenWrt userspace/kernel ABI used by SK-D840N,
 # then install the resulting IPKs into the repository rootfs.
 
+BUILD_SCRIPT_REVISION="20260830.4-precise-packages"
+echo "[build] build_passwall_rootfs.sh revision: ${BUILD_SCRIPT_REVISION}"
+
 OPENWRT_VERSION="${OPENWRT_VERSION:-24.10.8}"
 SDK_FILE="openwrt-sdk-${OPENWRT_VERSION}-armsr-armv8_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
 SDK_URL="https://downloads.openwrt.org/releases/${OPENWRT_VERSION}/targets/armsr/armv8/${SDK_FILE}"
@@ -101,12 +104,6 @@ EOF
 run_quiet "Resolve build configuration" "${build_dir}/defconfig.log" \
     make defconfig
 
-# A package-specific compile target does not reliably build every selected
-# runtime dependency in an SDK. Build the complete set selected by defconfig,
-# otherwise packages such as ipt2socks can be absent from bin/packages even
-# though luci-app-passwall itself compiled successfully.
-run_quiet "Download package sources" "${build_dir}/download.log" \
-    make -j8 download
 # Compile PassWall's non-standard runtime dependencies explicitly. Do not use
 # broad download or package/compile targets here: an SDK can select target
 # defaults such as base-files and mac80211, which are unrelated to this rootfs
@@ -137,8 +134,6 @@ if ! run_quiet "Compile Xray ${XRAY_VERSION}" "${build_dir}/xray-compile.log" \
     echo "[build] Xray verbose retry succeeded"
 fi
 
-run_quiet "Compile selected packages" "${build_dir}/compile.log" \
-    make -j"$(nproc)" package/compile
 run_quiet "Compile PassWall LuCI application" "${build_dir}/passwall-luci-compile.log" \
     make -j2 package/passwall-luci/luci-app-passwall/compile
 run_quiet "Compile Argon theme" "${build_dir}/argon-theme-compile.log" \
