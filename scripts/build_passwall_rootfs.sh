@@ -107,6 +107,15 @@ run_quiet "Resolve build configuration" "${build_dir}/defconfig.log" \
 # though luci-app-passwall itself compiled successfully.
 run_quiet "Download package sources" "${build_dir}/download.log" \
     make -j8 download
+# Compile PassWall's non-standard runtime dependencies explicitly. Do not use
+# broad download or package/compile targets here: an SDK can select target
+# defaults such as base-files and mac80211, which are unrelated to this rootfs
+# overlay and may require a full firmware build tree. Each precise compile
+# target downloads its own source prerequisites.
+for package in chinadns-ng dns2socks ipt2socks microsocks tcping; do
+    run_quiet "Compile ${package}" "${build_dir}/${package}-compile.log" \
+        make -j2 "package/passwall-packages/${package}/compile"
+done
 
 # Build the large Go package separately. This avoids interleaved parallel
 # output and gives a focused verbose retry if its toolchain requirements ever
@@ -130,6 +139,12 @@ fi
 
 run_quiet "Compile selected packages" "${build_dir}/compile.log" \
     make -j"$(nproc)" package/compile
+run_quiet "Compile PassWall LuCI application" "${build_dir}/passwall-luci-compile.log" \
+    make -j2 package/passwall-luci/luci-app-passwall/compile
+run_quiet "Compile Argon theme" "${build_dir}/argon-theme-compile.log" \
+    make -j2 package/luci-theme-argon/compile
+run_quiet "Compile Argon configuration" "${build_dir}/argon-config-compile.log" \
+    make -j2 package/luci-app-argon-config/compile
 
 ipk_dir="${rootfs_dir}/tmp/passwall-ipks"
 mkdir -p "${ipk_dir}"
