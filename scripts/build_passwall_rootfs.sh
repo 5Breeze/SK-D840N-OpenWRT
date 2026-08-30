@@ -5,7 +5,7 @@ set -euo pipefail
 # then install the resulting IPKs into the repository rootfs.
 
 BUILD_SCRIPT_REVISION="20260830.5-opkg-preflight"
-BUILD_SCRIPT_REVISION="20260830.6-chroot-runtime"
+BUILD_SCRIPT_REVISION="20260830.7-root-cleanup"
 echo "[build] build_passwall_rootfs.sh revision: ${BUILD_SCRIPT_REVISION}"
 
 OPENWRT_VERSION="${OPENWRT_VERSION:-24.10.8}"
@@ -228,17 +228,21 @@ cleanup_chroot() {
         fi
     done
     rm -f \
+    sudo rm -f \
         "${rootfs_dir}/usr/bin/qemu-aarch64-static" \
         "${rootfs_dir}/tmp/resolv.conf" \
         "${rootfs_dir}/tmp/lock/opkg.lock"
     rm -rf "${ipk_dir}"
-    rm -rf -- \
+    rmdir "${rootfs_dir}/tmp/lock" 2>/dev/null || true
+        "${rootfs_dir}/tmp/lock/opkg.lock" || true
+    sudo rm -rf -- \
         "${ipk_dir}" \
         "${rootfs_dir}/tmp/opkg-lists" \
-        "${rootfs_dir}/tmp/usr"
-    find "${rootfs_dir}/tmp" -mindepth 1 -maxdepth 1 \
-        -type d -name 'opkg-*' -exec rm -rf -- {} +
-    rmdir "${rootfs_dir}/tmp/lock" 2>/dev/null || true
+        "${rootfs_dir}/tmp/usr" || true
+    sudo find "${rootfs_dir}/tmp" -mindepth 1 -maxdepth 1 \
+        -type d -name 'opkg-*' -exec rm -rf -- {} + || true
+    sudo rmdir "${rootfs_dir}/tmp/lock" 2>/dev/null || true
+    return 0
 }
 trap cleanup_chroot EXIT
 
@@ -280,6 +284,7 @@ trap - EXIT
 
 # Argon remains selectable in LuCI, and is the default on first boot.
 sed -i 's#option mediaurlbase /luci-static/[^[:space:]]*#option mediaurlbase /luci-static/argon#' \
+sudo sed -i 's#option mediaurlbase /luci-static/[^[:space:]]*#option mediaurlbase /luci-static/argon#' \
     "${rootfs_dir}/etc/config/luci"
 
 test -x "${rootfs_dir}/bin/opkg"

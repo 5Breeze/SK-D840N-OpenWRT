@@ -64,7 +64,7 @@ EOF
 # fwtool in this rootfs is aarch64. Run it through qemu-user-static to append
 # standard OpenWrt metadata, so LuCI accepts the image without -F.
 qemu_bin="$(command -v qemu-aarch64-static)"
-cp "${qemu_bin}" "${rootfs_dir}/usr/bin/qemu-aarch64-static"
+sudo cp "${qemu_bin}" "${rootfs_dir}/usr/bin/qemu-aarch64-static"
 sudo cp "${work_dir}/sk-d840n-sysupgrade.tar" \
     "${rootfs_dir}/tmp/sk-d840n-sysupgrade.tar"
 sudo cp "${work_dir}/sk-d840n-sysupgrade.meta" \
