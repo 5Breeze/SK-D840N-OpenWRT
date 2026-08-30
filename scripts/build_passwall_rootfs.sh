@@ -5,6 +5,7 @@ set -euo pipefail
 # then install the resulting IPKs into the repository rootfs.
 
 BUILD_SCRIPT_REVISION="20260830.5-opkg-preflight"
+BUILD_SCRIPT_REVISION="20260830.6-chroot-runtime"
 echo "[build] build_passwall_rootfs.sh revision: ${BUILD_SCRIPT_REVISION}"
 
 OPENWRT_VERSION="${OPENWRT_VERSION:-24.10.8}"
@@ -210,15 +211,45 @@ chmod 1777 "${rootfs_dir}/tmp/lock"
 cp "${qemu_bin}" "${rootfs_dir}/usr/bin/qemu-aarch64-static"
 cp /etc/resolv.conf "${rootfs_dir}/tmp/resolv.conf"
 
+# Use the canonical OpenWrt CDN during the build. The repository's Tsinghua
+# mirror remains useful in China, but its TLS endpoint is not consistently
+# compatible with the older mbedTLS client in OpenWrt 24.10.
+test -s "${rootfs_dir}/etc/opkg/distfeeds.conf.default"
+cp "${rootfs_dir}/etc/opkg/distfeeds.conf.default" \
+    "${rootfs_dir}/etc/opkg/distfeeds.conf"
+
 cleanup_chroot() {
+    local mount_dir
+
+    for mount_dir in sys proc dev; do
+        if mountpoint -q "${rootfs_dir}/${mount_dir}"; then
+            sudo umount "${rootfs_dir}/${mount_dir}" || \
+                sudo umount -l "${rootfs_dir}/${mount_dir}" || true
+        fi
+    done
     rm -f \
         "${rootfs_dir}/usr/bin/qemu-aarch64-static" \
         "${rootfs_dir}/tmp/resolv.conf" \
         "${rootfs_dir}/tmp/lock/opkg.lock"
     rm -rf "${ipk_dir}"
+    rm -rf -- \
+        "${ipk_dir}" \
+        "${rootfs_dir}/tmp/opkg-lists" \
+        "${rootfs_dir}/tmp/usr"
+    find "${rootfs_dir}/tmp" -mindepth 1 -maxdepth 1 \
+        -type d -name 'opkg-*' -exec rm -rf -- {} +
     rmdir "${rootfs_dir}/tmp/lock" 2>/dev/null || true
 }
 trap cleanup_chroot EXIT
+
+# The checked-in rootfs intentionally has empty /dev, /proc and /sys. Bind the
+# host runtime views while using opkg; without /dev/urandom the OpenWrt TLS
+# client reports a generic SSL failure for every HTTPS package feed.
+sudo mount --bind /dev "${rootfs_dir}/dev"
+sudo mount --bind /proc "${rootfs_dir}/proc"
+sudo mount --bind /sys "${rootfs_dir}/sys"
+test -c "${rootfs_dir}/dev/urandom"
+test -r "${rootfs_dir}/proc/meminfo"
 
 chroot_opkg() {
     sudo chroot "${rootfs_dir}" /usr/bin/qemu-aarch64-static \
