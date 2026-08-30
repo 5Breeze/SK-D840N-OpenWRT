@@ -1,0 +1,22 @@
+SK-D840N OpenWrt + PassWall 构建包
+
+1. 在 GitHub 上 Fork https://github.com/huxiangjs/SK-D840N-OpenWRT
+2. 把本 ZIP 内的文件按原目录结构覆盖到 Fork 的 main 分支。
+3. 提交并推送；或打开 Actions，手动运行：
+   Build SK-D840N OpenWrt with PassWall
+4. 构建完成后，在该次运行的 Artifacts 下载：
+   SK-D840N-OpenWrt-24.10.8-PassWall
+5. 解压 Artifact，先阅读 FLASHING.zh-CN.md 再刷写。
+
+GitHub Actions 会：
+- 使用与原 rootfs 完全匹配的 OpenWrt 24.10.8 armsr/armv8 SDK；
+- 编译 PassWall、Xray 与 Argon 的 IPK；
+- 在 ARM64 chroot 内通过 opkg 安装到 rootfs；
+- 保留 LuCI 软件包页面和命令行 IPK 安装能力；
+- 检查 JFFS2 未超过 0x0f100000 分区；
+- 生成可在 LuCI 上传的 SK-D840N 专用 sysupgrade.tar；
+- sysupgrade 只更新 kernel、dtb、root，保护 bootloader 和 param；
+- 输出固件 ZIP 和关键 IPK 备份。
+
+本包不是已编译固件。创建它的 Windows 主机没有 WSL/Docker，无法在本机执行
+Linux OpenWrt SDK；必须等 GitHub Actions 全部显示绿色成功后，才可使用其产物。

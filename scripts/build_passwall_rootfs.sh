@@ -21,17 +21,39 @@ rootfs_dir="${repo_dir}/rootfs"
 rm -rf "${build_dir}"
 mkdir -p "${download_dir}" "${sdk_dir}"
 
-curl --fail --location --retry 5 --output "${download_dir}/${SDK_FILE}" "${SDK_URL}"
+run_quiet() {
+    local label="$1"
+    local logfile="$2"
+    shift 2
+
+    echo "::group::${label}"
+    echo "[build] ${label}..."
+    if "$@" >"${logfile}" 2>&1; then
+        echo "[build] ${label}: done"
+    else
+        local status=$?
+        echo "[build] ${label}: failed (last 250 log lines)" >&2
+        tail -n 250 "${logfile}" >&2 || true
+        echo "::endgroup::"
+        return "${status}"
+    fi
+    echo "::endgroup::"
+}
+
+curl --fail --location --retry 5 --silent --show-error \
+    --output "${download_dir}/${SDK_FILE}" "${SDK_URL}"
 tar --zstd -xf "${download_dir}/${SDK_FILE}" -C "${sdk_dir}" --strip-components=1
 
-git clone --depth 1 "${PASSWALL_REPO}" "${sdk_dir}/package/passwall-luci"
-git clone --depth 1 "${PASSWALL_PACKAGES_REPO}" "${sdk_dir}/package/passwall-packages"
-git clone --depth 1 "${ARGON_REPO}" "${sdk_dir}/package/luci-theme-argon"
-git clone --depth 1 "${ARGON_CONFIG_REPO}" "${sdk_dir}/package/luci-app-argon-config"
+git clone --quiet --depth 1 "${PASSWALL_REPO}" "${sdk_dir}/package/passwall-luci"
+git clone --quiet --depth 1 "${PASSWALL_PACKAGES_REPO}" "${sdk_dir}/package/passwall-packages"
+git clone --quiet --depth 1 "${ARGON_REPO}" "${sdk_dir}/package/luci-theme-argon"
+git clone --quiet --depth 1 "${ARGON_CONFIG_REPO}" "${sdk_dir}/package/luci-app-argon-config"
 
 cd "${sdk_dir}"
-./scripts/feeds update -a
-./scripts/feeds install -a
+run_quiet "Update OpenWrt feeds" "${build_dir}/feeds-update.log" \
+    ./scripts/feeds update -a
+run_quiet "Install OpenWrt feeds" "${build_dir}/feeds-install.log" \
+    ./scripts/feeds install -a
 
 # Keep the image practical for 256 MiB NAND: nftables + Xray provides the
 # modern PassWall path without also embedding every optional proxy core.
@@ -63,10 +85,17 @@ CONFIG_PACKAGE_luci-theme-argon=m
 CONFIG_PACKAGE_luci-app-argon-config=m
 EOF
 
-make defconfig
-make -j"$(nproc)" package/luci-app-passwall/compile V=s
-make -j"$(nproc)" package/luci-theme-argon/compile V=s
-make -j"$(nproc)" package/luci-app-argon-config/compile V=s
+run_quiet "Resolve build configuration" "${build_dir}/defconfig.log" \
+    make defconfig
+
+# A package-specific compile target does not reliably build every selected
+# runtime dependency in an SDK. Build the complete set selected by defconfig,
+# otherwise packages such as ipt2socks can be absent from bin/packages even
+# though luci-app-passwall itself compiled successfully.
+run_quiet "Download package sources" "${build_dir}/download.log" \
+    make -j8 download
+run_quiet "Compile selected packages" "${build_dir}/compile.log" \
+    make -j"$(nproc)" package/compile
 
 ipk_dir="${rootfs_dir}/tmp/passwall-ipks"
 mkdir -p "${ipk_dir}"
