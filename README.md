@@ -2,6 +2,11 @@
 
 **SK-D840N OpenWRT rootfs**
 
+> PassWall 构建版：运行 GitHub Actions 中的 **Build SK-D840N OpenWrt with PassWall**，
+> 可生成预装 Argon 现代 LuCI、简体中文、PassWall + Xray，并保留 `opkg`/IPK
+> 安装能力和 SK-D840N 专用 sysupgrade 的固件包。刷机前请阅读
+> [FLASHING.zh-CN.md](FLASHING.zh-CN.md)。
+
 **Feature:**
 
 * AArch64 @ Cortex A53x2 1000MHZ
@@ -117,46 +122,6 @@
 | **4-1000M** |   eth3   |  http://192.168.1.1 | ssh root@192.168.1.1 |
 
 Demo video: [Bilibili video](https://www.bilibili.com/video/BV1EMbR6tEZ7)
-
-## Included packages and CI build
-
-This repository keeps the board-specific bootloader, kernel and device tree,
-and uses the OpenWrt `armsr/armv8` rootfs. The GitHub Actions workflow pins
-the compatible OpenWrt 24.10.8 feed and kernel ABI, then adds:
-
-* Simplified Chinese LuCI language packs
-* Modern Argon LuCI theme, branded as `5Breeze`
-* V2Ray core and geo data
-* UPnP (`miniupnpd-nftables` and `luci-app-upnp`)
-* Tailscale and `kmod-tun`
-* ddns-go and its LuCI management page, built from the upstream source during CI
-
-Run the workflow from **Actions → Automatic Packaging → Run workflow**. A tag
-such as `v1.0.0` additionally creates a GitHub Release containing the firmware.
-The package list can be adjusted in `config/packages.txt`; package names must
-exist in the OpenWrt 24.10.8 `aarch64_generic` feeds.
-
-The Argon theme is selected automatically and displays `5Breeze` in the upper
-left navigation and login page. The runtime hostname remains an independent
-system setting.
-
-Tailscale is included but is intentionally not enrolled or enabled by default.
-After booting the router, use:
-
-```shell
-/etc/init.d/tailscale enable
-/etc/init.d/tailscale start
-tailscale up
-```
-
-The ddns-go LuCI page is under **Services → ddns-go**. It is also disabled by
-default; configure the provider and enable it from LuCI. UPnP should likewise
-only be enabled when needed because it allows LAN clients to create WAN port
-forwardings.
-
-The current upstream stable line 25.12 uses APK and a different package/rootfs
-layout. It should not be mixed with this repository's OpenWrt 24.10.8 opkg
-rootfs or the board's 6.6.144 kernel modules without a separate port.
 
 ## Manual Packaging
 

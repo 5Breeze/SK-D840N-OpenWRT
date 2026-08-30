@@ -1,165 +1,149 @@
-# SPDX-License-Identifier: GPL-2.0-or-later
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
 
-RAMFS_COPY_BIN="/usr/sbin/blkid"
+# SK-D840N NAND layout (do not modify boot/param from sysupgrade):
+#   boot   0x00000000..0x001fffff
+#   kernel 0x00200000..0x009fffff
+#   dtb    0x00a00000..0x00afffff
+#   param  0x00b00000..0x00efffff
+#   root   0x00f00000..0x0fffffff
+
+REQUIRE_IMAGE_METADATA=1
+RAMFS_COPY_BIN="sha256sum"
+
+SKD_SYSUPGRADE_DIR="sysupgrade-sk-d840n"
+SKD_KERNEL_MAX=$((0x00800000))
+SKD_DTB_MAX=$((0x00100000))
+SKD_ROOTFS_MAX=$((0x0f100000))
+
+skd_extract_member() {
+	local image="$1"
+	local member="$2"
+	local destination="$3"
+
+	tar -xf "$image" -O "${SKD_SYSUPGRADE_DIR}/${member}" > "$destination"
+}
+
+skd_mtd_size() {
+	local wanted="$1"
+	local dev size erase name
+
+	while read -r dev size erase name; do
+		name="${name#\"}"
+		name="${name%\"}"
+		[ "$name" = "$wanted" ] && {
+			echo $((0x$size))
+			return 0
+		}
+	done < /proc/mtd
+	return 1
+}
+
+skd_check_partition() {
+	local name="$1"
+	local expected="$2"
+	local actual
+
+	actual="$(skd_mtd_size "$name")" || {
+		v "Required MTD partition '$name' was not found"
+		return 1
+	}
+	[ "$actual" -eq "$expected" ] || {
+		v "MTD partition '$name' has unexpected size $actual (expected $expected)"
+		return 1
+	}
+}
 
 platform_check_image() {
-	local board=$(board_name)
-	local diskdev partdev diff
-	[ "$#" -gt 1 ] && return 1
+	local image="$1"
+	local board="$(board_name)"
+	local check_dir=/tmp/skd-sysupgrade-check
+	local member size max
 
-	v "Board is ${board}"
-
-	export_bootdevice && export_partdevice diskdev 0 || {
-		v "platform_check_image: Unable to determine upgrade device"
+	[ "$#" -eq 1 ] || return 1
+	[ "$board" = "zte,133" ] || {
+		v "This image is only for SK-D840N (zte,133), current board is $board"
 		return 1
 	}
 
-	get_partitions "/dev/$diskdev" bootdisk
-
-	v "Extract boot sector from the image"
-	get_image_dd "$1" of=/tmp/image.bs count=63 bs=512b
-
-	get_partitions /tmp/image.bs image
-
-	#compare tables
-	diff="$(grep -F -x -v -f /tmp/partmap.bootdisk /tmp/partmap.image)"
-
-	rm -f /tmp/image.bs /tmp/partmap.bootdisk /tmp/partmap.image
-
-	if [ -n "$diff" ]; then
-		v "Partition layout has changed. Full image will be written."
-		ask_bool 0 "Abort" && exit 1
-		return 0
-	fi
-}
-
-platform_copy_config() {
-	local partdev parttype=ext4
-
-	if export_partdevice partdev 1; then
-		part_magic_fat "/dev/$partdev" && parttype=vfat
-		mount -t $parttype -o rw,noatime "/dev/$partdev" /mnt
-		cp -af "$UPGRADE_BACKUP" "/mnt/$BACKUP_FILE"
-		umount /mnt
-	else
-		v "ERROR: Unable to find partition to copy config data to"
-	fi
-
-	sleep 5
-}
-
-# To avoid writing over any firmware
-# files (e.g ubootefi.var or firmware/X/ aka EBBR)
-# Copy efi/openwrt and efi/boot from the new image
-# to the existing ESP
-platform_do_upgrade_efi_system_partition() {
-	local image_file=$1
-	local target_partdev=$2
-	local image_efisp_start=$3
-	local image_efisp_size=$4
-
-	v "Updating ESP on ${target_partdev}"
-	NEW_ESP_DIR="/mnt/new_esp_loop"
-	CUR_ESP_DIR="/mnt/cur_esp"
-	mkdir "${NEW_ESP_DIR}"
-	mkdir "${CUR_ESP_DIR}"
-
-	get_image_dd "$image_file" of="/tmp/new_efi_sys_part.img" \
-		skip="$image_efisp_start" count="$image_efisp_size"
-
-	mount -t vfat -o loop -o ro /tmp/new_efi_sys_part.img "${NEW_ESP_DIR}"
-	if [ ! -d "${NEW_ESP_DIR}/efi/boot" ]; then
-		v "ERROR: Image does not contain EFI boot files (/efi/boot)"
-		return 1
-	fi
-
-	mount -t vfat "/dev/$partdev" "${CUR_ESP_DIR}"
-
-	for d in $(find "${NEW_ESP_DIR}/efi/" -mindepth 1 -maxdepth 1 -type d); do
-		v "Copying ${d}"
-		newdir_bname=$(basename "${d}")
-		rm -rf "${CUR_ESP_DIR}/efi/${newdir_bname}"
-		cp -r "${d}" "${CUR_ESP_DIR}/efi"
+	rm -rf "$check_dir"
+	mkdir -p "$check_dir"
+	for member in CONTROL sha256sums uImage board.dtb rootfs.jffs2; do
+		skd_extract_member "$image" "$member" "$check_dir/$member" || {
+			v "Missing or unreadable sysupgrade member: $member"
+			rm -rf "$check_dir"
+			return 1
+		}
 	done
 
-	umount "${NEW_ESP_DIR}"
-	umount "${CUR_ESP_DIR}"
+	grep -qx 'BOARD=zte,133' "$check_dir/CONTROL" || {
+		v "Invalid SK-D840N sysupgrade control file"
+		rm -rf "$check_dir"
+		return 1
+	}
+
+	(
+		cd "$check_dir" || exit 1
+		sha256sum -c sha256sums
+	) || {
+		v "Sysupgrade payload checksum verification failed"
+		rm -rf "$check_dir"
+		return 1
+	}
+
+	for member in uImage board.dtb rootfs.jffs2; do
+		size="$(wc -c < "$check_dir/$member")"
+		case "$member" in
+			uImage) max="$SKD_KERNEL_MAX" ;;
+			board.dtb) max="$SKD_DTB_MAX" ;;
+			rootfs.jffs2) max="$SKD_ROOTFS_MAX" ;;
+		esac
+		[ "$size" -le "$max" ] || {
+			v "$member is too large: $size bytes (maximum $max)"
+			rm -rf "$check_dir"
+			return 1
+		}
+	done
+
+	# Refuse to run if this is not the exact raw-NAND layout used by the repo.
+	skd_check_partition kernel "$SKD_KERNEL_MAX" || return 1
+	skd_check_partition dtb "$SKD_DTB_MAX" || return 1
+	skd_check_partition root "$SKD_ROOTFS_MAX" || return 1
+
+	rm -rf "$check_dir"
+	return 0
 }
 
 platform_do_upgrade() {
-	local board=$(board_name)
-	local diskdev partdev diff
+	local image="$1"
+	local upgrade_dir=/tmp/skd-sysupgrade
+	local member
 
-	export_bootdevice && export_partdevice diskdev 0 || {
-		v "platform_do_upgrade: Unable to determine upgrade device"
-		return 1
-	}
+	rm -rf "$upgrade_dir"
+	mkdir -p "$upgrade_dir"
+	for member in uImage board.dtb rootfs.jffs2; do
+		skd_extract_member "$image" "$member" "$upgrade_dir/$member" || exit 1
+	done
+
+	# Re-check the physical layout from ramfs immediately before erasing NAND.
+	skd_check_partition kernel "$SKD_KERNEL_MAX" || exit 1
+	skd_check_partition dtb "$SKD_DTB_MAX" || exit 1
+	skd_check_partition root "$SKD_ROOTFS_MAX" || exit 1
 
 	sync
+	v "Writing SK-D840N device tree to MTD 'dtb'"
+	mtd write "$upgrade_dir/board.dtb" dtb || exit 1
 
-	if [ "$UPGRADE_OPT_SAVE_PARTITIONS" = "1" ]; then
-		get_partitions "/dev/$diskdev" bootdisk
-
-		v "Extract boot sector from the image"
-		get_image_dd "$1" of=/tmp/image.bs count=63 bs=512b
-
-		get_partitions /tmp/image.bs image
-
-		#compare tables
-		diff="$(grep -F -x -v -f /tmp/partmap.bootdisk /tmp/partmap.image)"
+	v "Writing SK-D840N JFFS2 root filesystem to MTD 'root'"
+	if [ -n "$UPGRADE_BACKUP" ]; then
+		mtd $MTD_ARGS $MTD_CONFIG_ARGS -j "$UPGRADE_BACKUP" \
+			write "$upgrade_dir/rootfs.jffs2" root || exit 1
 	else
-		diff=1
+		mtd $MTD_ARGS write "$upgrade_dir/rootfs.jffs2" root || exit 1
 	fi
 
-	# Only change the partition table if sysupgrade -p is set,
-	# otherwise doing so could interfere with embedded "single storage"
-	# (e.g SoC boot from SD card) setups, as well as other user
-	# created storage (like uvol)
-	if [ -n "$diff" ] && [ "${UPGRADE_OPT_SAVE_PARTITIONS}" = "0" ]; then
-		# Need to remove partitions before dd, otherwise the partitions
-		# that are added after will have minor numbers offset
-		partx -d - "/dev/$diskdev"
-
-		get_image_dd "$1" of="/dev/$diskdev" bs=4096 conv=fsync
-
-		# Separate removal and addtion is necessary; otherwise, partition 1
-		# will be missing if it overlaps with the old partition 2
-		partx -a - "/dev/$diskdev"
-
-		return 0
-	fi
-
-	#iterate over each partition from the image and write it to the boot disk
-	while read part start size; do
-		if export_partdevice partdev $part; then
-			v "Writing image to /dev/$partdev..."
-			if [ "$part" = "1" ]; then
-				platform_do_upgrade_efi_system_partition \
-					$1 $partdev $start $size || return 1
-			else
-				v "Normal partition, doing DD"
-				get_image_dd "$1" of="/dev/$partdev" ibs=512 obs=1M skip="$start" \
-					count="$size" conv=fsync
-			fi
-		else
-			v "Unable to find partition $part device, skipped."
-		fi
-	done < /tmp/partmap.image
-
-	local parttype=ext4
-
-	if (blkid > /dev/null) && export_partdevice partdev 1; then
-		part_magic_fat "/dev/$partdev" && parttype=vfat
-		mount -t $parttype -o rw,noatime "/dev/$partdev" /mnt
-		if export_partdevice partdev 2; then
-			THIS_PART_BLKID=$(blkid -o value -s PARTUUID "/dev/${partdev}")
-			v "Setting rootfs PARTUUID=${THIS_PART_BLKID}"
-			sed -i "s/\(PARTUUID=\)[a-f0-9-]\+/\1${THIS_PART_BLKID}/ig" \
-				/mnt/efi/openwrt/grub.cfg
-		fi
-		umount /mnt
-	fi
-	# Provide time for the storage medium to flush before system reset
-	# (despite the sync/umount it appears NVMe etc. do it in the background)
-	sleep 5
+	# Kernel is intentionally last: bootloader and param are never touched.
+	v "Writing SK-D840N kernel to MTD 'kernel'"
+	mtd write "$upgrade_dir/uImage" kernel || exit 1
+	sync
 }
