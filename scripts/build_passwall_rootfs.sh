@@ -4,6 +4,9 @@ set -euo pipefail
 # Build PassWall for the exact OpenWrt userspace/kernel ABI used by SK-D840N,
 # then install the resulting IPKs into the repository rootfs.
 
+BUILD_SCRIPT_REVISION="20260830.5-opkg-preflight"
+echo "[build] build_passwall_rootfs.sh revision: ${BUILD_SCRIPT_REVISION}"
+
 OPENWRT_VERSION="${OPENWRT_VERSION:-24.10.8}"
 SDK_FILE="openwrt-sdk-${OPENWRT_VERSION}-armsr-armv8_gcc-13.3.0_musl.Linux-x86_64.tar.zst"
 SDK_URL="https://downloads.openwrt.org/releases/${OPENWRT_VERSION}/targets/armsr/armv8/${SDK_FILE}"
@@ -11,6 +14,17 @@ PASSWALL_REPO="${PASSWALL_REPO:-https://github.com/Openwrt-Passwall/openwrt-pass
 PASSWALL_PACKAGES_REPO="${PASSWALL_PACKAGES_REPO:-https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git}"
 ARGON_REPO="${ARGON_REPO:-https://github.com/jerrykuku/luci-theme-argon.git}"
 ARGON_CONFIG_REPO="${ARGON_CONFIG_REPO:-https://github.com/jerrykuku/luci-app-argon-config.git}"
+# Pin upstream inputs so a future main-branch update cannot silently break an
+# otherwise identical firmware build. Override both REPO and REF together when
+# intentionally testing newer upstream code.
+PASSWALL_REF="${PASSWALL_REF:-bbd098938427249f06f644341bfb916bad5cab5c}"
+PASSWALL_PACKAGES_REF="${PASSWALL_PACKAGES_REF:-b2d6f2384de1b50c6e7626a4e976cda42be15966}"
+ARGON_REF="${ARGON_REF:-ddefe5f05ca334dba10d2d65d25ebf14e986ee88}"
+ARGON_CONFIG_REF="${ARGON_CONFIG_REF:-3e099a37c3f71d0de677f1b6b0f4bffd57d91dac}"
+# OpenWrt 24.10 ships Go 1.23.x. Newer Xray releases require Go 1.24+
+# (26.7.28 requires 1.26), so use the newest known Go 1.23-compatible release.
+XRAY_VERSION="${XRAY_VERSION:-25.2.21}"
+XRAY_HASH="${XRAY_HASH:-a565db518d2da12fabb74e123d9bf2bdbc34420b81373938f8fcbc7004fda3ba}"
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 build_dir="${BUILD_DIR:-${repo_dir}/.build-passwall}"
@@ -20,6 +34,17 @@ rootfs_dir="${repo_dir}/rootfs"
 
 rm -rf "${build_dir}"
 mkdir -p "${download_dir}" "${sdk_dir}"
+
+test -x "${rootfs_dir}/bin/opkg"
+test -d "${rootfs_dir}/usr/lib/opkg/info"
+test "$(readlink "${rootfs_dir}/var")" = "tmp" || {
+    echo "rootfs/var must be the original relative symlink to tmp" >&2
+    exit 1
+}
+test "$(readlink "${rootfs_dir}/etc/resolv.conf")" = "/tmp/resolv.conf" || {
+    echo "rootfs/etc/resolv.conf must be the original OpenWrt symlink" >&2
+    exit 1
+}
 
 run_quiet() {
     local label="$1"
@@ -40,14 +65,38 @@ run_quiet() {
     echo "::endgroup::"
 }
 
+clone_ref() {
+    local repository="$1"
+    local reference="$2"
+    local destination="$3"
+
+    git init --quiet "${destination}"
+    git -C "${destination}" remote add origin "${repository}"
+    git -C "${destination}" fetch --quiet --depth 1 origin "${reference}"
+    git -C "${destination}" checkout --quiet --detach FETCH_HEAD
+}
+
 curl --fail --location --retry 5 --silent --show-error \
     --output "${download_dir}/${SDK_FILE}" "${SDK_URL}"
 tar --zstd -xf "${download_dir}/${SDK_FILE}" -C "${sdk_dir}" --strip-components=1
 
-git clone --quiet --depth 1 "${PASSWALL_REPO}" "${sdk_dir}/package/passwall-luci"
-git clone --quiet --depth 1 "${PASSWALL_PACKAGES_REPO}" "${sdk_dir}/package/passwall-packages"
-git clone --quiet --depth 1 "${ARGON_REPO}" "${sdk_dir}/package/luci-theme-argon"
-git clone --quiet --depth 1 "${ARGON_CONFIG_REPO}" "${sdk_dir}/package/luci-app-argon-config"
+clone_ref "${PASSWALL_REPO}" "${PASSWALL_REF}" \
+    "${sdk_dir}/package/passwall-luci"
+clone_ref "${PASSWALL_PACKAGES_REPO}" "${PASSWALL_PACKAGES_REF}" \
+    "${sdk_dir}/package/passwall-packages"
+clone_ref "${ARGON_REPO}" "${ARGON_REF}" \
+    "${sdk_dir}/package/luci-theme-argon"
+clone_ref "${ARGON_CONFIG_REPO}" "${ARGON_CONFIG_REF}" \
+    "${sdk_dir}/package/luci-app-argon-config"
+
+xray_makefile="${sdk_dir}/package/passwall-packages/xray-core/Makefile"
+test -f "${xray_makefile}"
+sed -i \
+    -e "s/^PKG_VERSION:=.*/PKG_VERSION:=${XRAY_VERSION}/" \
+    -e "s/^PKG_HASH:=.*/PKG_HASH:=${XRAY_HASH}/" \
+    "${xray_makefile}"
+grep -qx "PKG_VERSION:=${XRAY_VERSION}" "${xray_makefile}"
+grep -qx "PKG_HASH:=${XRAY_HASH}" "${xray_makefile}"
 
 cd "${sdk_dir}"
 run_quiet "Update OpenWrt feeds" "${build_dir}/feeds-update.log" \
@@ -88,14 +137,42 @@ EOF
 run_quiet "Resolve build configuration" "${build_dir}/defconfig.log" \
     make defconfig
 
-# A package-specific compile target does not reliably build every selected
-# runtime dependency in an SDK. Build the complete set selected by defconfig,
-# otherwise packages such as ipt2socks can be absent from bin/packages even
-# though luci-app-passwall itself compiled successfully.
-run_quiet "Download package sources" "${build_dir}/download.log" \
-    make -j8 download
-run_quiet "Compile selected packages" "${build_dir}/compile.log" \
-    make -j"$(nproc)" package/compile
+# Compile PassWall's non-standard runtime dependencies explicitly. Do not use
+# broad download or package/compile targets here: an SDK can select target
+# defaults such as base-files and mac80211, which are unrelated to this rootfs
+# overlay and may require a full firmware build tree. Each precise compile
+# target downloads its own source prerequisites.
+for package in chinadns-ng dns2socks ipt2socks microsocks tcping; do
+    run_quiet "Compile ${package}" "${build_dir}/${package}-compile.log" \
+        make -j2 "package/passwall-packages/${package}/compile"
+done
+
+# Build the large Go package separately. This avoids interleaved parallel
+# output and gives a focused verbose retry if its toolchain requirements ever
+# change again.
+if ! run_quiet "Compile Xray ${XRAY_VERSION}" "${build_dir}/xray-compile.log" \
+    make -j2 package/passwall-packages/xray-core/compile; then
+    echo "::group::Xray detailed retry"
+    echo "[build] Xray failed; retrying with -j1 V=sc for diagnostics..." >&2
+    set +e
+    make -j1 V=sc package/passwall-packages/xray-core/compile \
+        >"${build_dir}/xray-compile-verbose.log" 2>&1
+    xray_status=$?
+    set -e
+    tail -n 350 "${build_dir}/xray-compile-verbose.log" >&2 || true
+    echo "::endgroup::"
+    if [ "${xray_status}" -ne 0 ]; then
+        exit "${xray_status}"
+    fi
+    echo "[build] Xray verbose retry succeeded"
+fi
+
+run_quiet "Compile PassWall LuCI application" "${build_dir}/passwall-luci-compile.log" \
+    make -j2 package/passwall-luci/luci-app-passwall/compile
+run_quiet "Compile Argon theme" "${build_dir}/argon-theme-compile.log" \
+    make -j2 package/luci-theme-argon/compile
+run_quiet "Compile Argon configuration" "${build_dir}/argon-config-compile.log" \
+    make -j2 package/luci-app-argon-config/compile
 
 ipk_dir="${rootfs_dir}/tmp/passwall-ipks"
 mkdir -p "${ipk_dir}"
@@ -127,8 +204,21 @@ copy_ipk luci-i18n-argon-config-zh-cn no
 # --offline-root also prevents package post-install scripts from starting
 # router services inside the build host.
 qemu_bin="$(command -v qemu-aarch64-static)"
+test -n "${qemu_bin}"
+mkdir -p "${rootfs_dir}/tmp/lock" "${rootfs_dir}/tmp/opkg-lists"
+chmod 1777 "${rootfs_dir}/tmp/lock"
 cp "${qemu_bin}" "${rootfs_dir}/usr/bin/qemu-aarch64-static"
 cp /etc/resolv.conf "${rootfs_dir}/tmp/resolv.conf"
+
+cleanup_chroot() {
+    rm -f \
+        "${rootfs_dir}/usr/bin/qemu-aarch64-static" \
+        "${rootfs_dir}/tmp/resolv.conf" \
+        "${rootfs_dir}/tmp/lock/opkg.lock"
+    rm -rf "${ipk_dir}"
+    rmdir "${rootfs_dir}/tmp/lock" 2>/dev/null || true
+}
+trap cleanup_chroot EXIT
 
 chroot_opkg() {
     sudo chroot "${rootfs_dir}" /usr/bin/qemu-aarch64-static \
@@ -154,8 +244,8 @@ chroot_opkg install \
     luci-i18n-base-zh-cn luci-i18n-package-manager-zh-cn \
     luci-i18n-firewall-zh-cn || true
 
-rm -f "${rootfs_dir}/usr/bin/qemu-aarch64-static" "${rootfs_dir}/tmp/resolv.conf"
-rm -rf "${ipk_dir}"
+cleanup_chroot
+trap - EXIT
 
 # Argon remains selectable in LuCI, and is the default on first boot.
 sed -i 's#option mediaurlbase /luci-static/[^[:space:]]*#option mediaurlbase /luci-static/argon#' \
