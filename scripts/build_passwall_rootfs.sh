@@ -11,6 +11,10 @@ PASSWALL_REPO="${PASSWALL_REPO:-https://github.com/Openwrt-Passwall/openwrt-pass
 PASSWALL_PACKAGES_REPO="${PASSWALL_PACKAGES_REPO:-https://github.com/Openwrt-Passwall/openwrt-passwall-packages.git}"
 ARGON_REPO="${ARGON_REPO:-https://github.com/jerrykuku/luci-theme-argon.git}"
 ARGON_CONFIG_REPO="${ARGON_CONFIG_REPO:-https://github.com/jerrykuku/luci-app-argon-config.git}"
+# OpenWrt 24.10 ships Go 1.23.x. Newer Xray releases require Go 1.24+
+# (26.7.28 requires 1.26), so use the newest known Go 1.23-compatible release.
+XRAY_VERSION="${XRAY_VERSION:-25.2.21}"
+XRAY_HASH="${XRAY_HASH:-a565db518d2da12fabb74e123d9bf2bdbc34420b81373938f8fcbc7004fda3ba}"
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 build_dir="${BUILD_DIR:-${repo_dir}/.build-passwall}"
@@ -48,6 +52,15 @@ git clone --quiet --depth 1 "${PASSWALL_REPO}" "${sdk_dir}/package/passwall-luci
 git clone --quiet --depth 1 "${PASSWALL_PACKAGES_REPO}" "${sdk_dir}/package/passwall-packages"
 git clone --quiet --depth 1 "${ARGON_REPO}" "${sdk_dir}/package/luci-theme-argon"
 git clone --quiet --depth 1 "${ARGON_CONFIG_REPO}" "${sdk_dir}/package/luci-app-argon-config"
+
+xray_makefile="${sdk_dir}/package/passwall-packages/xray-core/Makefile"
+test -f "${xray_makefile}"
+sed -i \
+    -e "s/^PKG_VERSION:=.*/PKG_VERSION:=${XRAY_VERSION}/" \
+    -e "s/^PKG_HASH:=.*/PKG_HASH:=${XRAY_HASH}/" \
+    "${xray_makefile}"
+grep -qx "PKG_VERSION:=${XRAY_VERSION}" "${xray_makefile}"
+grep -qx "PKG_HASH:=${XRAY_HASH}" "${xray_makefile}"
 
 cd "${sdk_dir}"
 run_quiet "Update OpenWrt feeds" "${build_dir}/feeds-update.log" \
@@ -94,6 +107,27 @@ run_quiet "Resolve build configuration" "${build_dir}/defconfig.log" \
 # though luci-app-passwall itself compiled successfully.
 run_quiet "Download package sources" "${build_dir}/download.log" \
     make -j8 download
+
+# Build the large Go package separately. This avoids interleaved parallel
+# output and gives a focused verbose retry if its toolchain requirements ever
+# change again.
+if ! run_quiet "Compile Xray ${XRAY_VERSION}" "${build_dir}/xray-compile.log" \
+    make -j2 package/passwall-packages/xray-core/compile; then
+    echo "::group::Xray detailed retry"
+    echo "[build] Xray failed; retrying with -j1 V=sc for diagnostics..." >&2
+    set +e
+    make -j1 V=sc package/passwall-packages/xray-core/compile \
+        >"${build_dir}/xray-compile-verbose.log" 2>&1
+    xray_status=$?
+    set -e
+    tail -n 350 "${build_dir}/xray-compile-verbose.log" >&2 || true
+    echo "::endgroup::"
+    if [ "${xray_status}" -ne 0 ]; then
+        exit "${xray_status}"
+    fi
+    echo "[build] Xray verbose retry succeeded"
+fi
+
 run_quiet "Compile selected packages" "${build_dir}/compile.log" \
     make -j"$(nproc)" package/compile
 
