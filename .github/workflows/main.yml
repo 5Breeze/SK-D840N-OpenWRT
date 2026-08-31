@@ -32,6 +32,7 @@ jobs:
     - name: Compile PassWall IPKs and install into rootfs
       run: |
         chmod +x scripts/build_passwall_rootfs.sh
+        bash -n scripts/build_passwall_rootfs.sh
         ./scripts/build_passwall_rootfs.sh
 
     - name: Package and verify firmware
