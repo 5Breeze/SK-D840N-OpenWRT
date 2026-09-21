@@ -1,0 +1,3 @@
+#!/bin/sh
+# Optional user hooks for firewall3. UCI rules in /etc/config/firewall are
+# translated into legacy iptables filter and NAT tables by fw3.

@@ -1,0 +1,3 @@
+#!/bin/sh
+# User firewall hooks are intentionally empty. UCI rules in /etc/config/firewall
+# are translated by fw3 into legacy iptables filter and NAT tables.

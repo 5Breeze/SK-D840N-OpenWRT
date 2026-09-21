@@ -56,6 +56,15 @@
 * release page: [releases](https://downloads.openwrt.org/releases/24.10.8/targets/armsr/armv8/)
 * gcc: [gcc-13.3.0-musl.Linux-x86-64.tar.zst](https://downloads.openwrt.org/releases/24.10.8/targets/armsr/armv8/openwrt-toolchain-24.10.8-armsr-armv8_gcc-13.3.0_musl.Linux-x86_64.tar.zst)
 
+### Firewall compatibility
+
+The supplied `uImage` uses the vendor 4.19.136+ kernel, while the generic
+24.10 rootfs is otherwise built for a 6.6 kernel. The PassWall build therefore
+compiles and installs firewall3 with legacy iptables, and removes firewall4,
+nftables, and the 6.6-only nftables module load entries. The UCI WAN zone keeps
+`option masq 1`, so IPv4 LAN-to-WAN NAT is handled by the kernel's 4.19
+netfilter support.
+
 ## Quick Start
 
 ### Firmware download

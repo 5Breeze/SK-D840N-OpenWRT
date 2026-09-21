@@ -10,7 +10,6 @@ has_zone() {
 [ "$ACTION" = ifupdate -a -z "$IFUPDATE_ADDRESSES" -a -z "$IFUPDATE_DATA" ] && exit 0
 
 /etc/init.d/firewall enabled || exit 0
-
 has_zone || exit 0
 
 logger -t firewall "Reloading firewall due to $ACTION of $INTERFACE ($DEVICE)"

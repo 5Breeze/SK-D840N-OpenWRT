@@ -4,7 +4,7 @@ set -euo pipefail
 # Build PassWall for the exact OpenWrt userspace/kernel ABI used by SK-D840N,
 # then install the resulting IPKs into the repository rootfs.
 
-BUILD_SCRIPT_REVISION="20260831.1-root-cleanup"
+BUILD_SCRIPT_REVISION="20260831.2-firewall3-iptables"
 echo "[build] build_passwall_rootfs.sh revision: ${BUILD_SCRIPT_REVISION}"
 
 OPENWRT_VERSION="${OPENWRT_VERSION:-24.10.8}"
@@ -89,6 +89,11 @@ clone_ref "${ARGON_REPO}" "${ARGON_REF}" \
 clone_ref "${ARGON_CONFIG_REPO}" "${ARGON_CONFIG_REF}" \
     "${sdk_dir}/package/luci-app-argon-config"
 
+# The checked-in image uses a vendor 4.19 kernel. OpenWrt's default firewall4
+# package is built for the SDK's 6.6 kernel and its nftables modules cannot be
+# loaded by that kernel, so build the legacy firewall from this repository.
+cp -a "${repo_dir}/package/firewall" "${sdk_dir}/package/firewall"
+
 xray_makefile="${sdk_dir}/package/passwall-packages/xray-core/Makefile"
 test -f "${xray_makefile}"
 sed -i \
@@ -104,17 +109,27 @@ run_quiet "Update OpenWrt feeds" "${build_dir}/feeds-update.log" \
 run_quiet "Install OpenWrt feeds" "${build_dir}/feeds-install.log" \
     ./scripts/feeds install -a
 
-# Keep the image practical for 256 MiB NAND: nftables + Xray provides the
-# modern PassWall path without also embedding every optional proxy core.
+# Keep the image practical for 256 MiB NAND: legacy iptables + Xray provides
+# the PassWall path compatible with the device's vendor 4.19 kernel.
 cat >> .config <<'EOF'
 CONFIG_ALL_NONSHARED=n
 CONFIG_ALL_KMODS=n
 CONFIG_ALL=n
 CONFIG_AUTOREMOVE=n
 CONFIG_LUCI_LANG_zh_Hans=y
+CONFIG_PACKAGE_firewall=m
+CONFIG_PACKAGE_firewall4=n
+CONFIG_PACKAGE_nftables-json=n
+CONFIG_PACKAGE_kmod-nft-core=n
+CONFIG_PACKAGE_kmod-nft-fib=n
+CONFIG_PACKAGE_kmod-nft-nat=n
+CONFIG_PACKAGE_kmod-nft-offload=n
+CONFIG_PACKAGE_xtables-legacy=m
+CONFIG_PACKAGE_iptables-zz-legacy=m
+CONFIG_PACKAGE_ip6tables-zz-legacy=m
 CONFIG_PACKAGE_luci-app-passwall=m
-# CONFIG_PACKAGE_luci-app-passwall_Iptables_Transparent_Proxy is not set
-CONFIG_PACKAGE_luci-app-passwall_Nftables_Transparent_Proxy=y
+CONFIG_PACKAGE_luci-app-passwall_Iptables_Transparent_Proxy=y
+# CONFIG_PACKAGE_luci-app-passwall_Nftables_Transparent_Proxy is not set
 # CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Geoview is not set
 # CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Haproxy is not set
 # CONFIG_PACKAGE_luci-app-passwall_INCLUDE_Hysteria is not set
@@ -173,6 +188,10 @@ run_quiet "Compile Argon theme" "${build_dir}/argon-theme-compile.log" \
     make -j2 package/luci-theme-argon/compile
 run_quiet "Compile Argon configuration" "${build_dir}/argon-config-compile.log" \
     make -j2 package/luci-app-argon-config/compile
+run_quiet "Compile firewall3" "${build_dir}/firewall-compile.log" \
+    make -j2 package/firewall/compile
+run_quiet "Compile legacy iptables" "${build_dir}/iptables-compile.log" \
+    make -j2 package/network/utils/iptables/compile
 
 ipk_dir="${rootfs_dir}/tmp/passwall-ipks"
 mkdir -p "${ipk_dir}"
@@ -194,7 +213,9 @@ copy_ipk() {
 
 for package in \
     chinadns-ng dns2socks ipt2socks microsocks tcping xray-core \
-    luci-app-passwall luci-theme-argon luci-app-argon-config; do
+    luci-app-passwall luci-theme-argon luci-app-argon-config \
+    firewall xtables-legacy iptables-zz-legacy ip6tables-zz-legacy \
+    libip4tc libip6tc libiptext libiptext6 libxtables; do
     copy_ipk "${package}"
 done
 copy_ipk luci-i18n-passwall-zh-cn no
@@ -257,19 +278,27 @@ chroot_opkg() {
 
 chroot_opkg update
 
-# PassWall's nftables mode needs dnsmasq-full. It intentionally replaces the
-# smaller dnsmasq package from the base rootfs.
+# PassWall needs dnsmasq-full. It intentionally replaces the smaller dnsmasq
+# package from the base rootfs. Remove the generic firewall4 stack first: its
+# package metadata and init script otherwise win over the legacy firewall.
 chroot_opkg remove dnsmasq || true
+chroot_opkg remove --force-depends firewall4
+chroot_opkg remove --force-depends nftables-json kmod-nft-nat kmod-nft-socket \
+    kmod-nft-tproxy kmod-nft-offload kmod-nft-fib kmod-nft-core || true
+test ! -e "${rootfs_dir}/usr/lib/opkg/info/firewall4.control"
 chroot_opkg install \
     dnsmasq-full coreutils coreutils-base64 coreutils-nohup coreutils-timeout \
-    curl ip-full libuci-lua lua luci-compat luci-lib-jsonc lyaml nftables \
-    resolveip unzip kmod-nft-nat kmod-nft-socket kmod-nft-tproxy
+    curl ip-full libuci-lua lua luci-compat luci-lib-jsonc \
+    lyaml resolveip unzip
 
 mapfile -t local_ipks < <(
     find "${ipk_dir}" -maxdepth 1 -type f -name '*.ipk' \
         -printf '/tmp/passwall-ipks/%f\n' | sort
 )
-chroot_opkg install "${local_ipks[@]}"
+# The SDK records its own 6.6 kernel package as a dependency of iptables. The
+# vendor 4.19 kernel already supplies the matching netfilter modules, so do
+# not let that SDK-only dependency block installation into this rootfs.
+chroot_opkg install --force-depends "${local_ipks[@]}"
 chroot_opkg install \
     luci-i18n-base-zh-cn luci-i18n-package-manager-zh-cn \
     luci-i18n-firewall-zh-cn || true
